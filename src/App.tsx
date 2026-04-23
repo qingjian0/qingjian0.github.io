@@ -26,25 +26,38 @@ function App() {
     setSidebarOpen(!sidebarOpen)
   }
 
+  const closeSidebar = () => {
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="app">
       <div className="app-container">
+        {/* 侧边栏遮罩 */}
+        {sidebarOpen && (
+          <div className="sidebar-overlay active" onClick={closeSidebar}></div>
+        )}
+        
         {/* 侧边栏 */}
-        <NativeSidebar isOpen={sidebarOpen} />
+        <NativeSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
         
         {/* 主内容区 */}
-        <div className="main-content">
+        <div className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
           {/* 顶部导航栏 */}
           <header className="app-header">
             <button className="menu-button" onClick={toggleSidebar}>
-              ☰
+              <span className="menu-icon">☰</span>
             </button>
-            <h1>AI 智枢</h1>
-            <ModelSwitcher 
-              currentModel={currentModel} 
-              onModelChange={handleModelChange} 
-              models={aiModels}
-            />
+            <div className="app-header-brand">
+              <h1>AI 智枢</h1>
+            </div>
+            <div className="app-header-actions">
+              <ModelSwitcher 
+                currentModel={currentModel} 
+                onModelChange={handleModelChange} 
+                models={aiModels}
+              />
+            </div>
           </header>
           
           {/* 主内容 */}

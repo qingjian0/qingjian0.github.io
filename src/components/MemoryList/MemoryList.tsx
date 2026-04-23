@@ -38,6 +38,24 @@ const MemoryList: React.FC = () => {
     }
   }
 
+  const handleStartChat = () => {
+    // 导航到聊天页面
+    window.location.href = '/'
+  }
+
+  const getMemoryStats = () => {
+    const total = memories.length
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayMemories = memories.filter(memory => {
+      const memoryDate = new Date(memory.createdAt)
+      return memoryDate >= today
+    })
+    return { total, today: todayMemories.length }
+  }
+
+  const stats = getMemoryStats()
+
   if (isLoading) {
     return (
       <div className="memory-list">
@@ -54,32 +72,56 @@ const MemoryList: React.FC = () => {
       <div className="memory-list-header">
         <h2>记忆管理</h2>
         <p>管理您的聊天记忆和历史记录</p>
+        
+        {memories.length > 0 && (
+          <div className="memory-list-stats">
+            <div className="memory-stat">
+              <span className="memory-stat-number">{stats.total}</span>
+              <span className="memory-stat-label">总记忆数</span>
+            </div>
+            <div className="memory-stat">
+              <span className="memory-stat-number">{stats.today}</span>
+              <span className="memory-stat-label">今日记忆</span>
+            </div>
+          </div>
+        )}
       </div>
       
       {memories.length === 0 ? (
         <div className="memory-empty">
+          <div className="memory-empty-icon">🧠</div>
           <h3>暂无记忆</h3>
-          <p>开始聊天后，您的对话将会被保存到这里</p>
+          <p>开始聊天后，您的对话将会被保存到这里，方便您随时回顾和管理</p>
+          <button 
+            className="memory-empty-button"
+            onClick={handleStartChat}
+          >
+            开始聊天
+          </button>
         </div>
       ) : (
-        memories.map((memory) => (
-          <div key={memory.id} className="memory-item">
-            <div className="memory-item-content">
-              {memory.content}
-            </div>
-            <div className="memory-item-meta">
-              <span>{new Date(memory.createdAt).toLocaleString()}</span>
-              <div className="memory-item-actions">
-                <button 
-                  className="memory-item-button"
-                  onClick={() => handleDeleteMemory(memory.id)}
-                >
-                  删除
-                </button>
+        <div className="memory-grid">
+          {memories.map((memory) => (
+            <div key={memory.id} className="memory-item">
+              <div className="memory-item-content">
+                {memory.content}
+              </div>
+              <div className="memory-item-meta">
+                <div className="memory-item-time">
+                  {new Date(memory.createdAt).toLocaleString()}
+                </div>
+                <div className="memory-item-actions">
+                  <button 
+                    className="memory-item-button delete"
+                    onClick={() => handleDeleteMemory(memory.id)}
+                  >
+                    🗑️ 删除
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   )
