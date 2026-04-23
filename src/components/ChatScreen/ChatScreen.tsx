@@ -15,7 +15,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, url }) => {
   return (
     <div className="chat-screen">
       <div className="chat-header">
-        <h2>{modelName}</h2>
+        <div className="chat-header-info">
+          <h2>{modelName}</h2>
+          <div className="chat-status">在线</div>
+        </div>
       </div>
       <div className="chat-body">
         <iframe 

@@ -16,21 +16,29 @@ const aiModels = {
 
 function App() {
   const [currentModel, setCurrentModel] = useState(Object.keys(aiModels)[0])
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleModelChange = (model: string) => {
     setCurrentModel(model)
+  }
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
   }
 
   return (
     <div className="app">
       <div className="app-container">
         {/* 侧边栏 */}
-        <NativeSidebar />
+        <NativeSidebar isOpen={sidebarOpen} />
         
         {/* 主内容区 */}
         <div className="main-content">
           {/* 顶部导航栏 */}
           <header className="app-header">
+            <button className="menu-button" onClick={toggleSidebar}>
+              ☰
+            </button>
             <h1>AI 智枢</h1>
             <ModelSwitcher 
               currentModel={currentModel} 

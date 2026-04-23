@@ -28,6 +28,16 @@ const MemoryList: React.FC = () => {
     loadMemories()
   }, [])
 
+  const handleDeleteMemory = (id: string) => {
+    try {
+      const updatedMemories = memories.filter(memory => memory.id !== id)
+      setMemories(updatedMemories)
+      localStorage.setItem('ai-zhishu-memories', JSON.stringify(updatedMemories))
+    } catch (error) {
+      console.error('Failed to delete memory:', error)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="memory-list">
@@ -59,7 +69,14 @@ const MemoryList: React.FC = () => {
             </div>
             <div className="memory-item-meta">
               <span>{new Date(memory.createdAt).toLocaleString()}</span>
-              <button className="btn btn-secondary">删除</button>
+              <div className="memory-item-actions">
+                <button 
+                  className="memory-item-button"
+                  onClick={() => handleDeleteMemory(memory.id)}
+                >
+                  删除
+                </button>
+              </div>
             </div>
           </div>
         ))

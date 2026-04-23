@@ -1,10 +1,21 @@
 
 import { Link } from 'react-router-dom'
 
-const NativeSidebar: React.FC = () => {
+interface NativeSidebarProps {
+  isOpen?: boolean
+}
+
+const NativeSidebar: React.FC<NativeSidebarProps> = ({ isOpen = false }) => {
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
+        <div className="user-info">
+          <div className="user-avatar">古</div>
+          <div className="user-details">
+            <div className="user-name">古空年</div>
+            <div className="user-status">在线中</div>
+          </div>
+        </div>
         <h2>AI 智枢</h2>
       </div>
       <ul className="sidebar-menu">
