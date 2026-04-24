@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { chatWithAI } from '../../utils/apiService'
 
 interface ChatScreenProps {
   modelName: string
@@ -23,6 +24,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
   ])
   const [inputText, setInputText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [error, setError] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -33,7 +35,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
     scrollToBottom()
   }, [messages])
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputText.trim() === '') return
 
     const newMessage: Message = {
@@ -46,18 +48,39 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
     setMessages(prev => [...prev, newMessage])
     setInputText('')
     setIsTyping(true)
+    setError('')
 
-    // 模拟AI回复
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: '这是一个模拟的AI回复。在实际应用中，这里会连接到真实的AI服务。',
-        sender: 'ai',
-        timestamp: new Date()
+    try {
+      // 构建API消息格式
+      const apiMessages = [
+        { role: 'system' as const, content: '你是一个智能AI助手' },
+        ...messages.map(msg => ({
+          role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+          content: msg.text
+        })),
+        { role: 'user' as const, content: inputText.trim() }
+      ]
+
+      // 调用AI API
+      const response = await chatWithAI(modelName, apiMessages)
+      
+      if (response.success && response.data) {
+        const aiResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          text: response.data,
+          sender: 'ai',
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, aiResponse])
+      } else {
+        setError(response.error || 'AI回复失败')
       }
-      setMessages(prev => [...prev, aiResponse])
+    } catch (err) {
+      console.error('发送消息失败:', err)
+      setError('发送消息失败，请稍后重试')
+    } finally {
       setIsTyping(false)
-    }, 1500)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -97,6 +120,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
                 <span></span>
                 <span></span>
               </div>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="message-container error-message">
+            <div className="message-bubble error">
+              <div className="message-content">{error}</div>
             </div>
           </div>
         )}

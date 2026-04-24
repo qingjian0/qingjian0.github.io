@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import ChatScreen from './components/ChatScreen/ChatScreen'
 import ModelSwitcher from './components/ModelSwitcher/ModelSwitcher'
 import NativeSidebar from './components/NativeSidebar/NativeSidebar'
-import MemoryList from './components/MemoryList/MemoryList'
-import SecuritySettings from './components/SecuritySettings/SecuritySettings'
+import ThemeToggle from './components/ThemeToggle/ThemeToggle'
+import { applyTheme, setupThemeListener } from './utils/themeManager'
+import { setupKeyboardShortcuts } from './utils/keyboardShortcuts'
+
+// 懒加载组件
+const ChatScreen = lazy(() => import('./components/ChatScreen/ChatScreen'))
+const MemoryList = lazy(() => import('./components/MemoryList/MemoryList'))
+const SecuritySettings = lazy(() => import('./components/SecuritySettings/SecuritySettings'))
 
 // AI模型配置
 const aiModels = {
@@ -17,6 +22,22 @@ const aiModels = {
 function App() {
   const [currentModel, setCurrentModel] = useState(Object.keys(aiModels)[0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    // 应用主题
+    applyTheme()
+    
+    // 监听系统主题变化
+    const cleanupTheme = setupThemeListener()
+    
+    // 启用键盘快捷键
+    const cleanupKeyboard = setupKeyboardShortcuts()
+    
+    return () => {
+      cleanupTheme()
+      cleanupKeyboard?.()
+    }
+  }, [])
 
   const handleModelChange = (model: string) => {
     setCurrentModel(model)
@@ -57,24 +78,27 @@ function App() {
                 onModelChange={handleModelChange} 
                 models={aiModels}
               />
+              <ThemeToggle />
             </div>
           </header>
           
           {/* 主内容 */}
           <main className="app-main">
-            <Routes>
-              <Route 
-                path="/" 
-                element={
-                  <ChatScreen 
-                    modelName={currentModel} 
-                    url={aiModels[currentModel as keyof typeof aiModels]}
-                  />
-                } 
-              />
-              <Route path="/memory" element={<MemoryList />} />
-              <Route path="/settings" element={<SecuritySettings />} />
-            </Routes>
+            <Suspense fallback={<div className="loading-overlay"><div className="loading-spinner"></div><div className="loading-text">加载中...</div></div>}>
+              <Routes>
+                <Route 
+                  path="/" 
+                  element={
+                    <ChatScreen 
+                      modelName={currentModel} 
+                      url={aiModels[currentModel as keyof typeof aiModels]}
+                    />
+                  } 
+                />
+                <Route path="/memory" element={<MemoryList />} />
+                <Route path="/settings" element={<SecuritySettings />} />
+              </Routes>
+            </Suspense>
           </main>
         </div>
       </div>
