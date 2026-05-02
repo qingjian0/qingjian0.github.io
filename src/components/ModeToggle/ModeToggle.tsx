@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { AccessMode, getAccessMode, setAccessMode } from '../../utils/accessModeManager'
 import { hasAPIKey } from '../../utils/apiService'
 
