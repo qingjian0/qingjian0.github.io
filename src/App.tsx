@@ -3,10 +3,12 @@ import { Routes, Route } from 'react-router-dom'
 import ModelSwitcher from './components/ModelSwitcher/ModelSwitcher'
 import NativeSidebar from './components/NativeSidebar/NativeSidebar'
 import ThemeToggle from './components/ThemeToggle/ThemeToggle'
+import { ToastProvider } from './components/Toast/Toast'
+import { LoadingProvider } from './contexts/LoadingContext'
+import { ConfirmDialogProvider } from './components/ConfirmDialog/ConfirmDialog'
 import { applyTheme, setupThemeListener } from './utils/themeManager'
 import { setupKeyboardShortcuts } from './utils/keyboardShortcuts'
 
-// 懒加载组件
 const ChatScreen = lazy(() => import('./components/ChatScreen/ChatScreen'))
 const MemoryList = lazy(() => import('./components/MemoryList/MemoryList'))
 const SecuritySettings = lazy(() => import('./components/SecuritySettings/SecuritySettings'))
@@ -52,57 +54,58 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <div className="app-container">
-        {/* 侧边栏遮罩 */}
-        {sidebarOpen && (
-          <div className="sidebar-overlay active" onClick={closeSidebar}></div>
-        )}
-        
-        {/* 侧边栏 */}
-        <NativeSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
-        
-        {/* 主内容区 */}
-        <div className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
-          {/* 顶部导航栏 */}
-          <header className="app-header">
-            <button className="menu-button" onClick={toggleSidebar}>
-              <span className="menu-icon">☰</span>
-            </button>
-            <div className="app-header-brand">
-              <h1>AI 智枢</h1>
-            </div>
-            <div className="app-header-actions">
-              <ModelSwitcher 
-                currentModel={currentModel} 
-                onModelChange={handleModelChange} 
-                models={aiModels}
-              />
-              <ThemeToggle />
-            </div>
-          </header>
-          
-          {/* 主内容 */}
-          <main className="app-main">
-            <Suspense fallback={<div className="loading-overlay"><div className="loading-spinner"></div><div className="loading-text">加载中...</div></div>}>
-              <Routes>
-                <Route 
-                  path="/" 
-                  element={
-                    <ChatScreen 
-                      modelName={currentModel} 
-                      url={aiModels[currentModel as keyof typeof aiModels]}
+    <ToastProvider>
+      <LoadingProvider>
+        <ConfirmDialogProvider>
+          <div className="app">
+            <div className="app-container">
+              {sidebarOpen && (
+                <div className="sidebar-overlay active" onClick={closeSidebar}></div>
+              )}
+              
+              <NativeSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+              
+              <div className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
+                <header className="app-header">
+                  <button className="menu-button" onClick={toggleSidebar}>
+                    <span className="menu-icon">☰</span>
+                  </button>
+                  <div className="app-header-brand">
+                    <h1>AI 智枢</h1>
+                  </div>
+                  <div className="app-header-actions">
+                    <ModelSwitcher 
+                      currentModel={currentModel} 
+                      onModelChange={handleModelChange} 
+                      models={aiModels}
                     />
-                  } 
-                />
-                <Route path="/memory" element={<MemoryList />} />
-                <Route path="/settings" element={<SecuritySettings />} />
-              </Routes>
-            </Suspense>
-          </main>
-        </div>
-      </div>
-    </div>
+                    <ThemeToggle />
+                  </div>
+                </header>
+                
+                <main className="app-main">
+                  <Suspense fallback={<div className="loading-overlay"><div className="loading-spinner"></div><div className="loading-text">加载中...</div></div>}>
+                    <Routes>
+                      <Route 
+                        path="/" 
+                        element={
+                          <ChatScreen 
+                            modelName={currentModel} 
+                            url={aiModels[currentModel as keyof typeof aiModels]}
+                          />
+                        } 
+                      />
+                      <Route path="/memory" element={<MemoryList />} />
+                      <Route path="/settings" element={<SecuritySettings />} />
+                    </Routes>
+                  </Suspense>
+                </main>
+              </div>
+            </div>
+          </div>
+        </ConfirmDialogProvider>
+      </LoadingProvider>
+    </ToastProvider>
   )
 }
 

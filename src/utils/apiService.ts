@@ -1,43 +1,30 @@
-interface ChatMessage {
+export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
 }
 
-interface APIResponse {
+export interface APIResponse {
   success: boolean
   data?: string
   error?: string
+  errorType?: 'network' | 'auth' | 'quota' | 'unknown'
 }
 
-// 模拟API调用（后续替换为真实API）
-export const chatWithAI = async (modelName: string, _messages: ChatMessage[]): Promise<APIResponse> => {
-  try {
-    // 模拟API延迟
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // 模拟不同模型的回复
-    const responses: Record<string, string> = {
-      'DeepSeek': '这是DeepSeek的智能回复。我可以帮助你解决各种问题，包括编程、数学、科学等领域的问题。',
-      '豆包': '你好！我是豆包，由字节跳动开发的AI助手。很高兴为你服务，有什么可以帮助你的吗？',
-      '千问': '我是阿里巴巴的千问AI，专注于提供准确、可靠的信息和解决方案。',
-      '智谱清言': '我是智谱清言，由智谱AI开发。我可以协助你完成各种任务，包括写作、学习、工作等。'
-    }
-    
-    return {
-      success: true,
-      data: responses[modelName] || '这是AI的回复。'
-    }
-  } catch (error) {
-    console.error('API调用失败:', error)
-    return {
-      success: false,
-      error: 'API调用失败，请稍后重试'
-    }
-  }
+const API_ENDPOINTS = {
+  'DeepSeek': 'https://api.deepseek.com/chat/completions',
+  '豆包': 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+  '千问': 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+  '智谱清言': 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
 }
 
-// 保存API密钥
-export const saveAPIKey = (modelName: string, apiKey: string) => {
+const MODEL_IDS: Record<string, string> = {
+  'DeepSeek': 'deepseek-chat',
+  '豆包': 'doubao-pro-4k',
+  '千问': 'qwen-turbo',
+  '智谱清言': 'glm-4'
+}
+
+export const saveAPIKey = (modelName: string, apiKey: string): boolean => {
   try {
     const keys = JSON.parse(localStorage.getItem('ai-zhishu-api-keys') || '{}')
     keys[modelName] = apiKey
@@ -49,7 +36,6 @@ export const saveAPIKey = (modelName: string, apiKey: string) => {
   }
 }
 
-// 获取API密钥
 export const getAPIKey = (modelName: string): string => {
   try {
     const keys = JSON.parse(localStorage.getItem('ai-zhishu-api-keys') || '{}')
@@ -57,5 +43,205 @@ export const getAPIKey = (modelName: string): string => {
   } catch (error) {
     console.error('获取API密钥失败:', error)
     return ''
+  }
+}
+
+export const hasAPIKey = (modelName: string): boolean => {
+  const key = getAPIKey(modelName)
+  return key.length > 0
+}
+
+const makeDeepSeekRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
+  try {
+    const response = await fetch(API_ENDPOINTS['DeepSeek'], {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL_IDS['DeepSeek'],
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, error: 'API密钥无效', errorType: 'auth' }
+      }
+      if (response.status === 429) {
+        return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
+      }
+      return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
+    }
+
+    const data = await response.json()
+    return { success: true, data: data.choices[0]?.message?.content || '' }
+  } catch (error) {
+    console.error('DeepSeek API调用失败:', error)
+    return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
+  }
+}
+
+const makeDoubaoRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
+  try {
+    const response = await fetch(API_ENDPOINTS['豆包'], {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL_IDS['豆包'],
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, error: 'API密钥无效', errorType: 'auth' }
+      }
+      if (response.status === 429) {
+        return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
+      }
+      return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
+    }
+
+    const data = await response.json()
+    return { success: true, data: data.choices[0]?.message?.content || '' }
+  } catch (error) {
+    console.error('豆包 API调用失败:', error)
+    return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
+  }
+}
+
+const makeQianwenRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
+  try {
+    const response = await fetch(API_ENDPOINTS['千问'], {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL_IDS['千问'],
+        input: {
+          messages: messages.map(m => ({ role: m.role, content: m.content }))
+        },
+        parameters: {
+          temperature: 0.7,
+          max_tokens: 2000
+        }
+      })
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, error: 'API密钥无效', errorType: 'auth' }
+      }
+      if (response.status === 429) {
+        return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
+      }
+      return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
+    }
+
+    const data = await response.json()
+    return { success: true, data: data.output?.text || data.choices?.[0]?.message?.content || '' }
+  } catch (error) {
+    console.error('千问 API调用失败:', error)
+    return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
+  }
+}
+
+const makeZhipuRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
+  try {
+    const response = await fetch(API_ENDPOINTS['智谱清言'], {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL_IDS['智谱清言'],
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, error: 'API密钥无效', errorType: 'auth' }
+      }
+      if (response.status === 429) {
+        return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
+      }
+      return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
+    }
+
+    const data = await response.json()
+    return { success: true, data: data.choices[0]?.message?.content || '' }
+  } catch (error) {
+    console.error('智谱清言 API调用失败:', error)
+    return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
+  }
+}
+
+const getSimulatedResponse = (modelName: string): string => {
+  const responses: Record<string, string> = {
+    'DeepSeek': '这是DeepSeek的模拟回复。请配置API密钥以获取真实回复。',
+    '豆包': '这是豆包的模拟回复。请配置API密钥以获取真实回复。',
+    '千问': '这是千问的模拟回复。请配置API密钥以获取真实回复。',
+    '智谱清言': '这是智谱清言的模拟回复。请配置API密钥以获取真实回复。'
+  }
+  return responses[modelName] || '这是AI的模拟回复。请配置API密钥以获取真实回复。'
+}
+
+export const chatWithAI = async (modelName: string, messages: ChatMessage[]): Promise<APIResponse> => {
+  const apiKey = getAPIKey(modelName)
+  
+  if (!apiKey) {
+    await new Promise(resolve => setTimeout(resolve, 500))
+    return {
+      success: true,
+      data: getSimulatedResponse(modelName)
+    }
+  }
+
+  switch (modelName) {
+    case 'DeepSeek':
+      return makeDeepSeekRequest(messages, apiKey)
+    case '豆包':
+      return makeDoubaoRequest(messages, apiKey)
+    case '千问':
+      return makeQianwenRequest(messages, apiKey)
+    case '智谱清言':
+      return makeZhipuRequest(messages, apiKey)
+    default:
+      return { success: false, error: '未知的模型', errorType: 'unknown' }
+  }
+}
+
+export const validateAPIKey = async (modelName: string, apiKey: string): Promise<boolean> => {
+  const testMessages: ChatMessage[] = [
+    { role: 'user', content: 'Hi' }
+  ]
+  
+  const originalKey = getAPIKey(modelName)
+  saveAPIKey(modelName, apiKey)
+  
+  try {
+    const response = await chatWithAI(modelName, testMessages)
+    return response.success
+  } catch {
+    return false
+  } finally {
+    if (!apiKey) {
+      saveAPIKey(modelName, originalKey)
+    }
   }
 }
