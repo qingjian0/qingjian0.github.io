@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { chatWithAI } from '../../utils/apiService'
 import { sessionManager, Message, Session } from '../../utils/sessionManager'
+import { getAccessMode, AccessMode } from '../../utils/accessModeManager'
+import WebviewChat from '../WebviewChat/WebviewChat'
+import ModeToggle from '../ModeToggle/ModeToggle'
 
 interface ChatScreenProps {
   modelName: string
@@ -15,6 +18,7 @@ interface ExtendedMessage extends Message {
 type ExportFormat = 'json' | 'markdown'
 
 const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
+  const [mode, setMode] = useState<AccessMode>(getAccessMode())
   const [messages, setMessages] = useState<ExtendedMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -231,9 +235,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
                 onClick={() => handleRetry(message)}
                 disabled={isTyping}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 4V10H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3.51 15C4.15839 16.8404 5.38734 18.4202 7.01166 19.5014C8.63598 20.5826 10.5677 21.1066 12.5157 20.9945C14.4637 20.8824 16.3226 20.1402 17.8121 18.8798C19.3017 17.6193 20.3413 15.9090 20.7742 14.0064C21.2072 12.1037 21.0101 10.1139 20.2126 8.33119C19.4152 6.54852 18.0605 5.06418 16.3528 4.09577C14.6451 3.12737 12.6769 2.72597 10.7447 2.95134C8.81245 3.17672 7.02089 4.01645 5.64 5.35999L1 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 4V10H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5.51 15C6.15839 16.8404 7.38734 18.4202 9.01166 19.5014C10.636 20.5826 12.5677 21.1066 14.5157 20.9945C16.4637 20.8824 18.3226 20.1402 19.8121 18.8798C21.3017 17.6193 22.3413 15.909 22.7742 14.0064C23.2072 12.1037 23.0101 10.1139 22.2126 8.33119C21.4152 6.54852 20.0605 5.06418 18.3528 4.09577C16.6451 3.12737 14.6769 2.72597 12.7447 2.95134C10.8125 3.17672 9.02089 4.01645 7.64 5.35999L3 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 重试
               </button>
@@ -244,6 +248,30 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
     ))
   }, [messages, handleRetry, isTyping])
 
+  // 处理模式切换
+  const handleModeChange = (newMode: AccessMode) => {
+    setMode(newMode)
+  }
+
+  // 根据模式渲染不同的内容
+  if (mode === 'webview') {
+    return (
+      <div className="chat-screen webview-mode">
+        <div className="chat-header">
+          <div className="chat-header-info">
+            <h2>{modelName}</h2>
+            <div className="chat-status">
+              {currentSession ? currentSession.name : '加载中...'}
+            </div>
+          </div>
+        </div>
+        <ModeToggle modelName={modelName} onModeChange={handleModeChange} />
+        <WebviewChat modelName={modelName} />
+      </div>
+    )
+  }
+
+  // API模式渲染
   return (
     <div className="chat-screen">
       <div className="chat-header">
@@ -260,7 +288,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
             disabled={!currentSession || messages.length === 0}
             title="导出对话"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M21 15V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M12 3V15M12 15L7 10M12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -285,6 +313,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
           )}
         </div>
       </div>
+      <ModeToggle modelName={modelName} onModeChange={handleModeChange} />
       <div className="chat-body">
         {renderedMessages}
         {isTyping && (
@@ -329,7 +358,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
           onClick={() => handleSendMessage()}
           disabled={inputText.trim() === '' || isTyping}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
