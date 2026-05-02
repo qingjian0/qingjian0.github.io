@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { chatWithAI } from '../../utils/apiService'
 import { sessionManager, Message, Session } from '../../utils/sessionManager'
-import { getAccessMode, AccessMode } from '../../utils/accessModeManager'
+import { AccessMode } from '../../utils/accessModeManager'
 import WebviewChat from '../WebviewChat/WebviewChat'
-import ModeToggle from '../ModeToggle/ModeToggle'
 
 interface ChatScreenProps {
   modelName: string
   url?: string
+  accessMode?: AccessMode
 }
 
 interface ExtendedMessage extends Message {
@@ -17,8 +17,8 @@ interface ExtendedMessage extends Message {
 
 type ExportFormat = 'json' | 'markdown'
 
-const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
-  const [mode, setMode] = useState<AccessMode>(getAccessMode())
+const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }) => {
+  const mode = accessMode
   const [messages, setMessages] = useState<ExtendedMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -248,11 +248,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
     ))
   }, [messages, handleRetry, isTyping])
 
-  // 处理模式切换
-  const handleModeChange = (newMode: AccessMode) => {
-    setMode(newMode)
-  }
-
   // 根据模式渲染不同的内容
   if (mode === 'webview') {
     return (
@@ -265,7 +260,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
             </div>
           </div>
         </div>
-        <ModeToggle modelName={modelName} onModeChange={handleModeChange} />
         <WebviewChat modelName={modelName} />
       </div>
     )
@@ -313,7 +307,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName }) => {
           )}
         </div>
       </div>
-      <ModeToggle modelName={modelName} onModeChange={handleModeChange} />
       <div className="chat-body">
         {renderedMessages}
         {isTyping && (

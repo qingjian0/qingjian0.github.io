@@ -8,6 +8,7 @@ import { LoadingProvider } from './contexts/LoadingContext'
 import { ConfirmDialogProvider } from './components/ConfirmDialog/ConfirmDialog'
 import { applyTheme, setupThemeListener } from './utils/themeManager'
 import { setupKeyboardShortcuts } from './utils/keyboardShortcuts'
+import { getAccessMode, setAccessMode, AccessMode } from './utils/accessModeManager'
 
 const ChatScreen = lazy(() => import('./components/ChatScreen/ChatScreen'))
 const MemoryList = lazy(() => import('./components/MemoryList/MemoryList'))
@@ -24,6 +25,7 @@ const aiModels = {
 function App() {
   const [currentModel, setCurrentModel] = useState(Object.keys(aiModels)[0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [accessMode, setAccessModeState] = useState<AccessMode>(getAccessMode())
 
   useEffect(() => {
     // 应用主题
@@ -53,6 +55,11 @@ function App() {
     setSidebarOpen(false)
   }
 
+  const handleAccessModeChange = (mode: AccessMode) => {
+    setAccessModeState(mode)
+    setAccessMode(mode)
+  }
+
   return (
     <ToastProvider>
       <LoadingProvider>
@@ -63,7 +70,13 @@ function App() {
                 <div className="sidebar-overlay active" onClick={closeSidebar}></div>
               )}
               
-              <NativeSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+              <NativeSidebar 
+                isOpen={sidebarOpen} 
+                onClose={closeSidebar}
+                accessMode={accessMode}
+                onAccessModeChange={handleAccessModeChange}
+                currentModel={currentModel}
+              />
               
               <div className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
                 <header className="app-header">
@@ -92,6 +105,7 @@ function App() {
                           <ChatScreen 
                             modelName={currentModel} 
                             url={aiModels[currentModel as keyof typeof aiModels]}
+                            accessMode={accessMode}
                           />
                         } 
                       />

@@ -1,17 +1,25 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { sessionManager, Session } from '../../utils/sessionManager'
+import { AccessMode } from '../../utils/accessModeManager'
+import { hasAPIKey } from '../../utils/apiService'
 
 interface NativeSidebarProps {
   isOpen?: boolean
   onClose?: () => void
   onSessionChange?: (sessionId: string) => void
+  accessMode?: AccessMode
+  onAccessModeChange?: (mode: AccessMode) => void
+  currentModel?: string
 }
 
 const NativeSidebar: React.FC<NativeSidebarProps> = ({ 
   isOpen = false, 
   onClose,
-  onSessionChange 
+  onSessionChange,
+  accessMode = 'api',
+  onAccessModeChange,
+  currentModel
 }) => {
   const location = useLocation()
   const [sessions, setSessions] = useState<Session[]>([])
@@ -247,6 +255,31 @@ const NativeSidebar: React.FC<NativeSidebarProps> = ({
         </div>
       </div>
 
+      <hr className="sidebar-divider" />
+      
+      <div className="sidebar-section">
+        <div className="sidebar-section-header">
+          <span className="sidebar-section-title">访问模式</span>
+        </div>
+        <div className="mode-switcher-sidebar">
+          <button
+            className={`mode-button-sidebar ${accessMode === 'api' ? 'active' : ''}`}
+            onClick={() => onAccessModeChange?.('api')}
+          >
+            <span className="mode-icon">🔑</span>
+            <span className="mode-text">API</span>
+            {currentModel && hasAPIKey(currentModel) && <span className="mode-badge">✓</span>}
+          </button>
+          <button
+            className={`mode-button-sidebar ${accessMode === 'webview' ? 'active' : ''}`}
+            onClick={() => onAccessModeChange?.('webview')}
+          >
+            <span className="mode-icon">🌐</span>
+            <span className="mode-text">网页</span>
+          </button>
+        </div>
+      </div>
+      
       <hr className="sidebar-divider" />
       
       <ul className="sidebar-menu">
