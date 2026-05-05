@@ -7,7 +7,7 @@ export interface APIResponse {
   success: boolean
   data?: string
   error?: string
-  errorType?: 'network' | 'auth' | 'quota' | 'unknown'
+  errorType?: 'network' | 'auth' | 'quota' | 'timeout' | 'unknown'
 }
 
 const API_ENDPOINTS = {
@@ -23,6 +23,10 @@ const MODEL_IDS: Record<string, string> = {
   '千问': 'qwen-turbo',
   '智谱清言': 'glm-4'
 }
+
+const REQUEST_TIMEOUT = 30000
+const MAX_RETRIES = 2
+const RETRY_DELAY = 1000
 
 export const saveAPIKey = (modelName: string, apiKey: string): boolean => {
   try {
@@ -51,9 +55,34 @@ export const hasAPIKey = (modelName: string): boolean => {
   return key.length > 0
 }
 
+const withTimeout = <T>(promise: Promise<T>, timeout: number): Promise<T> => {
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('请求超时'))
+    }, timeout)
+  })
+  return Promise.race([promise, timeoutPromise])
+}
+
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  retries: number,
+  delay: number
+): Promise<T> => {
+  try {
+    return await fn()
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return withRetry(fn, retries - 1, delay * 2)
+    }
+    throw error
+  }
+}
+
 const makeDeepSeekRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
   try {
-    const response = await fetch(API_ENDPOINTS['DeepSeek'], {
+    const response = await withTimeout(fetch(API_ENDPOINTS['DeepSeek'], {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +94,7 @@ const makeDeepSeekRequest = async (messages: ChatMessage[], apiKey: string): Pro
         temperature: 0.7,
         max_tokens: 2000
       })
-    })
+    }), REQUEST_TIMEOUT)
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -74,6 +103,9 @@ const makeDeepSeekRequest = async (messages: ChatMessage[], apiKey: string): Pro
       if (response.status === 429) {
         return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
       }
+      if (response.status >= 500) {
+        throw new Error(`服务器错误: ${response.status}`)
+      }
       return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
     }
 
@@ -81,13 +113,16 @@ const makeDeepSeekRequest = async (messages: ChatMessage[], apiKey: string): Pro
     return { success: true, data: data.choices[0]?.message?.content || '' }
   } catch (error) {
     console.error('DeepSeek API调用失败:', error)
+    if (error instanceof Error && error.message === '请求超时') {
+      return { success: false, error: '请求超时，请稍后重试', errorType: 'timeout' }
+    }
     return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
   }
 }
 
 const makeDoubaoRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
   try {
-    const response = await fetch(API_ENDPOINTS['豆包'], {
+    const response = await withTimeout(fetch(API_ENDPOINTS['豆包'], {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -99,7 +134,7 @@ const makeDoubaoRequest = async (messages: ChatMessage[], apiKey: string): Promi
         temperature: 0.7,
         max_tokens: 2000
       })
-    })
+    }), REQUEST_TIMEOUT)
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -108,6 +143,9 @@ const makeDoubaoRequest = async (messages: ChatMessage[], apiKey: string): Promi
       if (response.status === 429) {
         return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
       }
+      if (response.status >= 500) {
+        throw new Error(`服务器错误: ${response.status}`)
+      }
       return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
     }
 
@@ -115,13 +153,16 @@ const makeDoubaoRequest = async (messages: ChatMessage[], apiKey: string): Promi
     return { success: true, data: data.choices[0]?.message?.content || '' }
   } catch (error) {
     console.error('豆包 API调用失败:', error)
+    if (error instanceof Error && error.message === '请求超时') {
+      return { success: false, error: '请求超时，请稍后重试', errorType: 'timeout' }
+    }
     return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
   }
 }
 
 const makeQianwenRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
   try {
-    const response = await fetch(API_ENDPOINTS['千问'], {
+    const response = await withTimeout(fetch(API_ENDPOINTS['千问'], {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +178,7 @@ const makeQianwenRequest = async (messages: ChatMessage[], apiKey: string): Prom
           max_tokens: 2000
         }
       })
-    })
+    }), REQUEST_TIMEOUT)
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -146,6 +187,9 @@ const makeQianwenRequest = async (messages: ChatMessage[], apiKey: string): Prom
       if (response.status === 429) {
         return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
       }
+      if (response.status >= 500) {
+        throw new Error(`服务器错误: ${response.status}`)
+      }
       return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
     }
 
@@ -153,13 +197,16 @@ const makeQianwenRequest = async (messages: ChatMessage[], apiKey: string): Prom
     return { success: true, data: data.output?.text || data.choices?.[0]?.message?.content || '' }
   } catch (error) {
     console.error('千问 API调用失败:', error)
+    if (error instanceof Error && error.message === '请求超时') {
+      return { success: false, error: '请求超时，请稍后重试', errorType: 'timeout' }
+    }
     return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
   }
 }
 
 const makeZhipuRequest = async (messages: ChatMessage[], apiKey: string): Promise<APIResponse> => {
   try {
-    const response = await fetch(API_ENDPOINTS['智谱清言'], {
+    const response = await withTimeout(fetch(API_ENDPOINTS['智谱清言'], {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -171,7 +218,7 @@ const makeZhipuRequest = async (messages: ChatMessage[], apiKey: string): Promis
         temperature: 0.7,
         max_tokens: 2000
       })
-    })
+    }), REQUEST_TIMEOUT)
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -180,6 +227,9 @@ const makeZhipuRequest = async (messages: ChatMessage[], apiKey: string): Promis
       if (response.status === 429) {
         return { success: false, error: '请求过于频繁，请稍后重试', errorType: 'quota' }
       }
+      if (response.status >= 500) {
+        throw new Error(`服务器错误: ${response.status}`)
+      }
       return { success: false, error: `请求失败: ${response.status}`, errorType: 'unknown' }
     }
 
@@ -187,6 +237,9 @@ const makeZhipuRequest = async (messages: ChatMessage[], apiKey: string): Promis
     return { success: true, data: data.choices[0]?.message?.content || '' }
   } catch (error) {
     console.error('智谱清言 API调用失败:', error)
+    if (error instanceof Error && error.message === '请求超时') {
+      return { success: false, error: '请求超时，请稍后重试', errorType: 'timeout' }
+    }
     return { success: false, error: '网络错误，请检查网络连接', errorType: 'network' }
   }
 }
@@ -212,36 +265,49 @@ export const chatWithAI = async (modelName: string, messages: ChatMessage[]): Pr
     }
   }
 
-  switch (modelName) {
-    case 'DeepSeek':
-      return makeDeepSeekRequest(messages, apiKey)
-    case '豆包':
-      return makeDoubaoRequest(messages, apiKey)
-    case '千问':
-      return makeQianwenRequest(messages, apiKey)
-    case '智谱清言':
-      return makeZhipuRequest(messages, apiKey)
-    default:
-      return { success: false, error: '未知的模型', errorType: 'unknown' }
+  const requestFn = () => {
+    switch (modelName) {
+      case 'DeepSeek':
+        return makeDeepSeekRequest(messages, apiKey)
+      case '豆包':
+        return makeDoubaoRequest(messages, apiKey)
+      case '千问':
+        return makeQianwenRequest(messages, apiKey)
+      case '智谱清言':
+        return makeZhipuRequest(messages, apiKey)
+      default:
+        return Promise.resolve<APIResponse>({ success: false, error: '未知的模型', errorType: 'unknown' })
+    }
   }
+
+  const response = await withRetry(requestFn, MAX_RETRIES, RETRY_DELAY)
+  
+  if (!response.success && response.errorType === 'auth') {
+    return response
+  }
+  
+  return response
 }
 
 export const validateAPIKey = async (modelName: string, apiKey: string): Promise<boolean> => {
+  if (!apiKey.trim()) {
+    return false
+  }
+
   const testMessages: ChatMessage[] = [
-    { role: 'user', content: 'Hi' }
+    { role: 'user', content: 'test' }
   ]
   
   const originalKey = getAPIKey(modelName)
-  saveAPIKey(modelName, apiKey)
   
   try {
+    saveAPIKey(modelName, apiKey)
+    
     const response = await chatWithAI(modelName, testMessages)
     return response.success
   } catch {
     return false
   } finally {
-    if (!apiKey) {
-      saveAPIKey(modelName, originalKey)
-    }
+    saveAPIKey(modelName, originalKey)
   }
 }

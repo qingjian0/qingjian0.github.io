@@ -16,6 +16,9 @@ export interface Session {
 
 const STORAGE_KEY = 'ai-zhishu-sessions'
 const CURRENT_SESSION_KEY = 'ai-zhishu-current-session'
+const MAX_SESSIONS = 50
+const MAX_MESSAGES_PER_SESSION = 100
+const MAX_STORAGE_BYTES = 5 * 1024 * 1024
 
 class SessionManager {
   private sessions: Map<string, Session> = new Map()
@@ -35,6 +38,7 @@ class SessionManager {
       if (storedSessions) {
         const sessionsArray: Session[] = JSON.parse(storedSessions)
         sessionsArray.forEach(session => {
+          session.messages = session.messages.slice(0, MAX_MESSAGES_PER_SESSION)
           this.sessions.set(session.id, session)
         })
       }
@@ -46,6 +50,7 @@ class SessionManager {
         this.currentSessionId = this.sessions.keys().next().value || null
       }
 
+      this.enforceSessionLimit()
       this.isInitialized = true
     } catch (error) {
       console.error('Failed to initialize sessions:', error)
@@ -63,14 +68,59 @@ class SessionManager {
 
   private saveToStorage(): void {
     try {
+      this.enforceSessionLimit()
+      
       const sessionsArray = Array.from(this.sessions.values())
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionsArray))
+      const data = JSON.stringify(sessionsArray)
+      
+      if (this.isStorageExceeded(data)) {
+        this.cleanupOldestSessions()
+        this.saveToStorage()
+        return
+      }
+      
+      localStorage.setItem(STORAGE_KEY, data)
       if (this.currentSessionId) {
         localStorage.setItem(CURRENT_SESSION_KEY, this.currentSessionId)
       }
     } catch (error) {
       console.error('Failed to save sessions:', error)
     }
+  }
+
+  private isStorageExceeded(data: string): boolean {
+    const byteSize = new Blob([data]).size
+    return byteSize > MAX_STORAGE_BYTES
+  }
+
+  private enforceSessionLimit(): void {
+    if (this.sessions.size <= MAX_SESSIONS) return
+
+    const sortedSessions = Array.from(this.sessions.values())
+      .sort((a, b) => (new Date(a.updatedAt).getTime() as number) - (new Date(b.updatedAt).getTime() as number))
+    
+    const sessionsToRemove = sortedSessions.slice(0, this.sessions.size - MAX_SESSIONS)
+    
+    sessionsToRemove.forEach(session => {
+      this.sessions.delete(session.id)
+      if (this.currentSessionId === session.id) {
+        this.currentSessionId = this.sessions.keys().next().value || null
+      }
+    })
+  }
+
+  private cleanupOldestSessions(): void {
+    const sortedSessions = Array.from(this.sessions.values())
+      .sort((a, b) => (new Date(a.updatedAt).getTime() as number) - (new Date(b.updatedAt).getTime() as number))
+    
+    const sessionsToRemove = sortedSessions.slice(0, Math.ceil(this.sessions.size * 0.2))
+    
+    sessionsToRemove.forEach(session => {
+      this.sessions.delete(session.id)
+      if (this.currentSessionId === session.id) {
+        this.currentSessionId = this.sessions.keys().next().value || null
+      }
+    })
   }
 
   createSession(model: string, name?: string): Session {
@@ -140,6 +190,11 @@ class SessionManager {
     }
 
     session.messages.push(newMessage)
+    
+    if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
+      session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION)
+    }
+    
     session.updatedAt = new Date().toISOString()
     this.debouncedSave()
 
@@ -253,6 +308,26 @@ class SessionManager {
     })
 
     return lines.join('\n')
+  }
+
+  clearAllSessions(): void {
+    this.sessions.clear()
+    this.currentSessionId = null
+    this.debouncedSave()
+  }
+
+  getStorageUsage(): { used: number; limit: number; percentage: number } {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY) || ''
+      const used = new Blob([data]).size
+      return {
+        used,
+        limit: MAX_STORAGE_BYTES,
+        percentage: Math.round((used / MAX_STORAGE_BYTES) * 100)
+      }
+    } catch {
+      return { used: 0, limit: MAX_STORAGE_BYTES, percentage: 0 }
+    }
   }
 }
 

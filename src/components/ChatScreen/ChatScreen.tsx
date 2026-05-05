@@ -17,6 +17,8 @@ interface ExtendedMessage extends Message {
 
 type ExportFormat = 'json' | 'markdown'
 
+const MAX_INPUT_LENGTH = 4000
+
 const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }) => {
   const mode = accessMode
   const [messages, setMessages] = useState<ExtendedMessage[]>([])
@@ -25,8 +27,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
   const [error, setError] = useState<string>('')
   const [currentSession, setCurrentSession] = useState<Session | null>(null)
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [charCount, setCharCount] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
+  const isSubmittingRef = useRef(false)
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -63,6 +67,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
     }
   }, [modelName])
 
+  useEffect(() => {
+    setCharCount(inputText.length)
+  }, [inputText])
+
   const saveMessageToSession = useCallback((message: Omit<Message, 'id' | 'timestamp'>) => {
     if (!currentSession) return null
     return sessionManager.addMessage(currentSession.id, message)
@@ -70,7 +78,20 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
 
   const handleSendMessage = async (retryMessage?: ExtendedMessage) => {
     const textToSend = retryMessage?.text || inputText.trim()
+    
     if (textToSend === '' || !currentSession) return
+    
+    if (isSubmittingRef.current) {
+      console.warn('消息正在发送中，请稍候')
+      return
+    }
+
+    if (!retryMessage && textToSend.length > MAX_INPUT_LENGTH) {
+      setError(`输入内容超过最大长度限制(${MAX_INPUT_LENGTH}字符)`)
+      return
+    }
+
+    isSubmittingRef.current = true
 
     if (retryMessage) {
       setMessages(prev => prev.map(msg => 
@@ -85,6 +106,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
       }
       setMessages(prev => [...prev, userMessage])
       setInputText('')
+      setCharCount(0)
     }
 
     setIsTyping(true)
@@ -175,6 +197,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
       }
     } finally {
       setIsTyping(false)
+      isSubmittingRef.current = false
     }
   }
 
@@ -188,6 +211,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
       handleSendMessage()
     }
   }, [])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    if (value.length <= MAX_INPUT_LENGTH) {
+      setInputText(value)
+    }
+  }
 
   const handleExport = useCallback((format: ExportFormat) => {
     if (!currentSession) return
@@ -248,7 +278,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
     ))
   }, [messages, handleRetry, isTyping])
 
-  // 根据模式渲染不同的内容
   if (mode === 'webview') {
     return (
       <div className="chat-screen webview-mode">
@@ -265,7 +294,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
     )
   }
 
-  // API模式渲染
   return (
     <div className="chat-screen">
       <div className="chat-header">
@@ -341,15 +369,21 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ modelName, accessMode = 'api' }
           className="message-input"
           placeholder="输入消息..."
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={handleInputChange}
           onKeyPress={handleKeyPress}
           rows={1}
           disabled={isTyping}
+          maxLength={MAX_INPUT_LENGTH}
         />
+        <div className="input-meta">
+          <span className={`char-count ${charCount > MAX_INPUT_LENGTH * 0.8 ? 'warning' : ''}`}>
+            {charCount}/{MAX_INPUT_LENGTH}
+          </span>
+        </div>
         <button 
           className="send-button"
           onClick={() => handleSendMessage()}
-          disabled={inputText.trim() === '' || isTyping}
+          disabled={inputText.trim() === '' || isTyping || charCount > MAX_INPUT_LENGTH}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

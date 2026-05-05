@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import CryptoJS from 'crypto-js'
 import { saveAPIKey, getAPIKey } from '../../utils/apiService'
+import { sessionManager } from '../../utils/sessionManager'
 
 const SecuritySettings: React.FC = () => {
   const [password, setPassword] = useState('')
@@ -20,8 +20,8 @@ const SecuritySettings: React.FC = () => {
     '千问': getAPIKey('千问'),
     '智谱清言': getAPIKey('智谱清言')
   })
+  const [storageUsage, setStorageUsage] = useState({ used: 0, percentage: 0 })
 
-  // 加载设置
   useEffect(() => {
     const loadSettings = () => {
       try {
@@ -38,6 +38,12 @@ const SecuritySettings: React.FC = () => {
         if (hint) {
           setPasswordHint(hint)
         }
+
+        const usage = sessionManager.getStorageUsage()
+        setStorageUsage({
+          used: usage.used,
+          percentage: usage.percentage
+        })
       } catch (error) {
         console.error('Failed to load settings:', error)
         showMessage('加载设置失败', 'error')
@@ -47,20 +53,16 @@ const SecuritySettings: React.FC = () => {
     loadSettings()
   }, [])
 
-  // 密码强度检测
   useEffect(() => {
     if (password) {
       let strength = 0
-      // 长度检查
       if (password.length >= 6) strength += 15
       if (password.length >= 8) strength += 10
       if (password.length >= 12) strength += 10
-      // 字符类型检查
       if (/[A-Z]/.test(password)) strength += 15
       if (/[a-z]/.test(password)) strength += 15
       if (/[0-9]/.test(password)) strength += 15
       if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength += 15
-      // 最大强度限制
       setPasswordStrength(Math.min(strength, 100))
     } else {
       setPasswordStrength(0)
@@ -94,17 +96,10 @@ const SecuritySettings: React.FC = () => {
       return
     }
 
-    // 保存密码（实际应用中应该加密存储）
     try {
-      // 生成随机密钥
-      const secretKey = CryptoJS.lib.WordArray.random(16).toString()
-      const encryptedPassword = CryptoJS.AES.encrypt(password, secretKey).toString()
+      const hashedPassword = hashPassword(password)
+      localStorage.setItem('ai-zhishu-password-hash', hashedPassword)
       
-      // 保存密码和密钥
-      localStorage.setItem('ai-zhishu-password', encryptedPassword)
-      localStorage.setItem('ai-zhishu-secret-key', secretKey)
-      
-      // 保存密码提示
       if (passwordHint) {
         localStorage.setItem('ai-zhishu-password-hint', passwordHint)
       }
@@ -117,6 +112,16 @@ const SecuritySettings: React.FC = () => {
       console.error('Failed to save password:', error)
       showMessage('密码设置失败', 'error')
     }
+  }
+
+  const hashPassword = (password: string): string => {
+    let hash = 0
+    for (let i = 0; i < password.length; i++) {
+      const char = password.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash
+    }
+    return hash.toString(16)
   }
 
   const handleAPIKeyChange = (model: string, key: string) => {
@@ -141,8 +146,8 @@ const SecuritySettings: React.FC = () => {
     if (window.confirm('确定要清除所有数据吗？此操作不可恢复！')) {
       try {
         localStorage.clear()
+        sessionManager.clearAllSessions()
         showMessage('数据已清除', 'success')
-        // 重新加载设置
         window.location.reload()
       } catch (error) {
         console.error('Failed to clear data:', error)
@@ -154,7 +159,13 @@ const SecuritySettings: React.FC = () => {
   const handleSettingChange = (setting: string, value: boolean) => {
     try {
       localStorage.setItem(`ai-zhishu-${setting}`, value.toString())
-      showMessage(`${setting === 'encryption' ? '数据加密' : setting === 'auto-save' ? '自动保存' : setting === 'sync' ? '数据同步' : '匿名模式'}设置已更新`, 'success')
+      const settingNames: Record<string, string> = {
+        'encryption': '数据加密',
+        'auto-save': '自动保存',
+        'sync': '数据同步',
+        'anonymous': '匿名模式'
+      }
+      showMessage(`${settingNames[setting] || setting}设置已更新`, 'success')
     } catch (error) {
       console.error(`Failed to save ${setting} setting:`, error)
       showMessage('设置保存失败', 'error')
@@ -166,6 +177,12 @@ const SecuritySettings: React.FC = () => {
     if (passwordStrength < 50) return '#ff9500'
     if (passwordStrength < 75) return '#34c759'
     return '#34c759'
+  }
+
+  const formatStorageSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
   }
 
   return (
@@ -279,6 +296,27 @@ const SecuritySettings: React.FC = () => {
           >
             保存API密钥
           </button>
+        </div>
+      </div>
+
+      <div className="security-card">
+        <div className="security-card-header">
+          <h3 className="security-card-title">存储管理</h3>
+          <p className="security-card-description">查看存储使用情况</p>
+        </div>
+        <div className="security-card-body">
+          <div className="storage-info">
+            <div className="storage-bar-container">
+              <div 
+                className="storage-bar" 
+                style={{ width: `${storageUsage.percentage}%` }}
+              ></div>
+            </div>
+            <div className="storage-text">
+              <span>已使用: {formatStorageSize(storageUsage.used)}</span>
+              <span className="storage-percentage">{storageUsage.percentage}%</span>
+            </div>
+          </div>
         </div>
       </div>
 
