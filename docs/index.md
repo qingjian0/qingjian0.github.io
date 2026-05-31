@@ -1,12 +1,6 @@
-# 清简·qingjian
+# qingjian blog
 
-> AI Agent 工程师 | 国学爱好者
-
----
-
-## 最近文章
-
-- [AI Agent 入门指南](blog/first-post.md)
+> AI Agent Engineer | 国学爱好者
 
 ---
 
