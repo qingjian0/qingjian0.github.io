@@ -13,6 +13,7 @@ import { getAccessMode, setAccessMode, AccessMode } from './utils/accessModeMana
 const ChatScreen = lazy(() => import('./components/ChatScreen/ChatScreen'))
 const MemoryList = lazy(() => import('./components/MemoryList/MemoryList'))
 const SecuritySettings = lazy(() => import('./components/SecuritySettings/SecuritySettings'))
+const Blog = lazy(() => import('./components/Blog/Blog'))
 
 // AI模型配置
 const aiModels = {
@@ -111,11 +112,12 @@ function App() {
                       />
                       <Route path="/memory" element={<MemoryList />} />
                       <Route path="/settings" element={<SecuritySettings />} />
+                      <Route path="/blog" element={<Blog />} />
                     </Routes>
                   </Suspense>
                 </main>
               </div>
-            </div>
+              </div>
           </div>
         </ConfirmDialogProvider>
       </LoadingProvider>

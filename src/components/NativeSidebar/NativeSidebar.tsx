@@ -284,6 +284,18 @@ const NativeSidebar: React.FC<NativeSidebarProps> = ({
       
       <ul className="sidebar-menu">
         <li className="sidebar-menu-item">
+          <Link to="/" className={`sidebar-menu-link ${getActiveClass('/')}`} onClick={handleLinkClick}>
+            <span className="menu-icon">💬</span>
+            <span className="menu-text">聊天</span>
+          </Link>
+        </li>
+        <li className="sidebar-menu-item">
+          <Link to="/blog" className={`sidebar-menu-link ${getActiveClass('/blog')}`} onClick={handleLinkClick}>
+            <span className="menu-icon">📝</span>
+            <span className="menu-text">博客</span>
+          </Link>
+        </li>
+        <li className="sidebar-menu-item">
           <Link to="/memory" className={`sidebar-menu-link ${getActiveClass('/memory')}`} onClick={handleLinkClick}>
             <span className="menu-icon">🧠</span>
             <span className="menu-text">记忆管理</span>
